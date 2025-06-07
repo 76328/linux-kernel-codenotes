@@ -49,8 +49,22 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
  *
  * When the stack grows down, this is just above the thread
  * info struct. Going any lower will corrupt the threadinfo.
- *
- * 	ARM
+ * When the stack grows up, this is the highest address.
+ * Beyond that position, we corrupt data on the next page.
+ */
+static inline unsigned long *end_of_stack(struct task_struct *p)
+{
+#ifdef CONFIG_STACK_GROWSUP
+	return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
+#else
+	return (unsigned long *)(task_thread_info(p) + 1);
+#endif
+}
+/*
+end_of_stack reading notes:
+
+1.stack grows down case, like ARM:
+
  * High Addresses
 +---------------------+  <- Kernel stack start (initial stack pointer),Kernel stack memory end
 | Function call frames |
@@ -62,9 +76,9 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
 | thread_info struct   |  
 +---------------------+  <- Kernel stack memory base (task_thread_info(p))
 Low Addresses
- *
- * When the stack grows up, this is the highest address.
- * Beyond that position, we corrupt data on the next page.
+
+2.stack grows up case: 
+
  Low Addresses
 +---------------------+  <- Kernel stack memory base (task_thread_info(p))
 | thread_info struct   |  <- Top of stack (corruption if overwritten)
@@ -76,16 +90,7 @@ Low Addresses
 | Available stack      |
 +---------------------+  <- Kernel stack memory end, end_of_stack(), returns this address
 High Addresses
- */
-static inline unsigned long *end_of_stack(struct task_struct *p)
-{
-#ifdef CONFIG_STACK_GROWSUP
-	return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
-#else
-	return (unsigned long *)(task_thread_info(p) + 1);
-#endif
-}
-
+*/
 #endif
 
 #ifdef CONFIG_THREAD_INFO_IN_TASK
